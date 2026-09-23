@@ -385,27 +385,30 @@ function buildSprites() {
   S.shoppers = [['#e0344f', '#ffd400'], ['#2f8f5b', '#e0344f'], ['#f5ecd9', '#0a4f9c']].map(([coat, hat]) => mk(240, 240, g => drawShopper(g, coat, hat)));
 
   // the truck: rear view, 3 lean frames × brake on/off
-  S.truck = {};
-  for (const lean of [-1, 0, 1]) for (const br of [0, 1]) S.truck[lean + ':' + br] = mk(260, 220, (g, w, h) => {
+  const OURS = { box: '#0a4f9c', rib: '#0b58ad', band: '#ffd400', ink: '#0a4f9c', step: '#0c3f7a', label: 'HEMLEVERANS', plate: 'HEJ 024' };
+  const RIVAL = { box: '#ffd400', rib: '#f0c400', band: '#0a4f9c', ink: '#ffd400', step: '#b89800', label: 'KONKURRENT', plate: 'NEJ 666' };
+  const truck = (lean, br, P) => mk(260, 220, (g, w, h) => {
     g.save(); g.setTransform(1, 0, lean * 0.06, 1, -lean * 0.06 * h, 0);
     g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(6, h - 8, w - 12, 8);
     g.fillStyle = '#121212'; g.fillRect(14, 176, 34, 40); g.fillRect(50, 176, 30, 40); g.fillRect(w - 48, 176, 34, 40); g.fillRect(w - 80, 176, 30, 40);
     g.fillStyle = '#1a1a1a'; g.fillRect(2, 40, 12, 40); g.fillRect(w - 14, 40, 12, 40);
-    g.fillStyle = '#0a4f9c'; rrect(g, 14, 4, w - 28, 170, 8);
-    g.fillStyle = '#0b58ad'; for (let y = 20; y < 170; y += 16) g.fillRect(24, y, w - 48, 3);
-    g.fillStyle = '#ffd400'; g.fillRect(14, 104, w - 28, 22);
-    g.fillStyle = '#0a4f9c'; g.font = `15px ${DISPLAY}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('HEMLEVERANS', w / 2, 116);
-    g.fillStyle = '#ffd400'; g.fillRect(w / 2 - 22, 40, 44, 34); g.fillStyle = '#0a4f9c'; g.fillRect(w / 2 - 2, 40, 4, 34); g.fillRect(w / 2 - 22, 55, 44, 4);
-    g.fillStyle = '#0c3f7a'; g.fillRect(w / 2 - 14, 146, 28, 8);
+    g.fillStyle = P.box; rrect(g, 14, 4, w - 28, 170, 8);
+    g.fillStyle = P.rib; for (let y = 20; y < 170; y += 16) g.fillRect(24, y, w - 48, 3);
+    g.fillStyle = P.band; g.fillRect(14, 104, w - 28, 22);
+    g.fillStyle = P.ink; g.font = `15px ${DISPLAY}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(P.label, w / 2, 116);
+    g.fillStyle = P.band; g.fillRect(w / 2 - 22, 40, 44, 34); g.fillStyle = P.ink; g.fillRect(w / 2 - 2, 40, 4, 34); g.fillRect(w / 2 - 22, 55, 44, 4);
+    g.fillStyle = P.step; g.fillRect(w / 2 - 14, 146, 28, 8);
     g.fillStyle = '#2a2d33'; g.fillRect(8, 168, w - 16, 16);
     g.fillStyle = br ? '#ff3344' : '#9c1b26'; g.fillRect(14, 164, 34, 14); g.fillRect(w - 48, 164, 34, 14);
     g.fillStyle = '#ffa31a'; g.fillRect(50, 166, 12, 10); g.fillRect(w - 62, 166, 12, 10);
     g.fillStyle = '#f7f7f7'; g.fillRect(w / 2 - 34, 168, 68, 14); g.fillStyle = '#1b3f8a'; g.fillRect(w / 2 - 34, 168, 9, 14);
-    g.fillStyle = '#111'; g.font = `bold 11px 'JetBrains Mono', monospace`; g.fillText('HEJ 024', w / 2 + 5, 176);
+    g.fillStyle = '#111'; g.font = `bold 11px 'JetBrains Mono', monospace`; g.fillText(P.plate, w / 2 + 5, 176);
     g.fillStyle = '#0d0d0d'; g.fillRect(18, 186, 26, 26); g.fillRect(w - 44, 186, 26, 26);
     if (br) { const gr = g.createRadialGradient(31, 171, 2, 31, 171, 30); gr.addColorStop(0, 'rgba(255,60,70,.7)'); gr.addColorStop(1, 'rgba(255,60,70,0)'); g.fillStyle = gr; g.fillRect(0, 140, 70, 60); g.save(); g.translate(w - 62, 0); g.fillRect(0, 140, 70, 60); g.restore(); }
     g.restore();
   });
+  S.truck = {}; S.rival = {};
+  for (const lean of [-1, 0, 1]) { for (const br of [0, 1]) S.truck[lean + ':' + br] = truck(lean, br, OURS); S.rival[lean] = truck(lean, 0, RIVAL); }
 }
 function drawShopper(g, coat, hat) {
   // side view, walking right, pushing a trolley stacked with flat-packs
@@ -576,13 +579,13 @@ function resetCars() {
 
 /* ---------- state ---------- */
 let state = 'title', paused = false;
-let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0, boost = 1, boosting = false, hitCool = 0, turboSaid = -9;
+let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0, boost = 1, boosting = false, hitCool = 0, turboSaid = -9, rival = null, rivalIn = 0;
 let time = START_TIME, lap = 0, score = 0, cargo = 100, nextCp = 0, shake = 0, endTimer = 0, bgStage = 0, bgFade = 1, prevBg = 0, clock = 0;
 const keys = { left: false, right: false, up: false, down: false, boost: false };
 
 function resetRun() {
   position = 0; playerX = 0; speed = 0; skyOff = 0; nearOff = 0; time = START_TIME; lap = 0; score = 0; cargo = 100; nextCp = 0; shake = 0; endTimer = 0; boost = 1; boosting = false; hitCool = 0;
-  bgStage = 0; prevBg = 0; bgFade = 1; resetCars();
+  bgStage = 0; prevBg = 0; bgFade = 1; resetCars(); rival = null; rivalIn = 25 + Math.random() * 10;
 }
 
 /* ---------- messages ---------- */
@@ -601,6 +604,7 @@ function update(dt) {
   const auto = state === 'title';
 
   updateCars(dt, pSeg, pw);
+  updateRival(dt, pw);
   position = inc(position, dt * speed, trackLen);
 
   steer = 0;
@@ -633,6 +637,7 @@ function update(dt) {
     }
   }
   if (driving) traffic: for (const seg of hitSegs) for (const car of seg.cars) {
+    if (car.rival) continue;
     const cw = car.w / ROADW;
     if ((speed > car.speed || car.walk) && overlap(playerX, pw, car.offset, cw, 0.8)) {
       if (car.walk) {
@@ -677,14 +682,11 @@ function turboOn() {
   if (clock - turboSaid < 2.5) return; // no chatter when tapping the key
   turboSaid = clock;
   if (msgTimer <= 0) showMsg('TURBO', 'activated', 1.2);
-  if (!muted && 'speechSynthesis' in window) {
-    const u = new SpeechSynthesisUtterance('Turbo activated'); u.rate = 1.15; u.pitch = 0.8; u.volume = 0.9;
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  }
 }
 function hit(dmg, label) {
   cargo = Math.max(0, cargo - dmg); shake = reduceMotion ? 0 : 0.35; sfx.crash(dmg > 10);
   if (label === 'ÄLG!') showMsg('ÄLG!', 'Moose 1 · Truck 0 · −14% cargo', 1.6);
+  if (label === 'RIVAL') showMsg('BUMP!', 'Rival ran you wide · −5% cargo', 1.6);
   if (label === 'TROLLEY') showMsg('OJ!', 'Trolley launched · shopper fine · −8% cargo', 1.6);
 }
 function updateCars(dt, pSeg, pw) {
@@ -707,6 +709,53 @@ function updateCars(dt, pSeg, pw) {
     const nw = findSeg(car.z);
     if (old !== nw) { const i = old.cars.indexOf(car); if (i >= 0) old.cars.splice(i, 1); nw.cars.push(car); }
   }
+}
+
+/* ---------- rival truck ---------- */
+// Our truck in inverted livery: creeps up from behind, pulls alongside, then swerves in to shove us off the road.
+function updateRival(dt, pw) {
+  const pz = position + playerZ;
+  if (!rival) {
+    if (state !== 'play' || nextCp >= 5 || (rivalIn -= dt) > 0) return;
+    const side = playerX > 0.3 ? -1 : 1;
+    rival = { z: inc(pz, -SEG * 14, trackLen), offset: playerX + side * 0.8, side, speed, phase: 'approach', t: 0, sprite: S.rival[0], w: TRUCKW, rival: true, percent: 0 };
+    findSeg(rival.z).cars.push(rival);
+    showMsg('KONKURRENT!', 'Rival truck closing in · hold your line', 2); sfx.horn();
+    return;
+  }
+  const r = rival, old = findSeg(r.z);
+  let gap = inc(r.z, -pz, trackLen); if (gap > trackLen / 2) gap -= trackLen; // + means rival is ahead
+  const keepUp = () => { r.speed = clamp(speed + (SEG * 0.2 - gap) * 3, MAXS * 0.3, TOP * 1.08); }; // can't match turbo
+  r.t += dt;
+  if (state !== 'play' && r.phase !== 'leave') r.phase = 'leave';
+  if (r.phase === 'approach') {
+    r.speed = speed + MAXS * 0.4;
+    r.offset = lerp(r.offset, clamp(playerX + r.side * 0.8, -1.1, 1.1), dt * 3);
+    if (gap > -SEG * 0.5) { r.phase = 'alongside'; r.t = 0; }
+  } else if (r.phase === 'alongside' || r.phase === 'swerve') {
+    keepUp();
+    if (r.phase === 'alongside') {
+      r.offset = lerp(r.offset, clamp(playerX + r.side * 0.8, -1.1, 1.1), dt * 3);
+      if (r.t > 1.2) { r.phase = 'swerve'; r.t = 0; sfx.horn(); }
+    } else r.offset -= r.side * 1.1 * dt;
+    if (r.phase === 'swerve' && Math.abs(gap) < SEG * 1.2 && overlap(playerX, pw, r.offset, pw, 0.9)) {
+      playerX -= r.side * 1.1; speed *= 0.7; hit(5, 'RIVAL'); r.phase = 'leave';
+    } else if (gap < -SEG * 5) {
+      score += 2000; showMsg('HEJDÅ!', 'Left the rival in your mirrors · +2 000', 1.8); r.phase = 'leave';
+    } else if (r.phase === 'swerve' && r.t > 2.2) {
+      score += 2000; showMsg('UNDVIKEN!', 'Dodged the rival · +2 000', 1.8); r.phase = 'leave';
+    }
+  } else { // leave: floor it and vanish up the road (or drop behind if we're on turbo)
+    r.speed = TOP * 1.15;
+    r.offset = lerp(r.offset, r.side * 0.62, dt);
+    if (gap > SEG * 150 || gap < -SEG * 8) { const i = old.cars.indexOf(r); if (i >= 0) old.cars.splice(i, 1); rival = null; rivalIn = 35 + Math.random() * 25; return; }
+  }
+  r.offset = clamp(r.offset, -1.2, 1.2);
+  r.sprite = S.rival[r.phase === 'swerve' ? -r.side : 0];
+  r.z = inc(r.z, dt * r.speed, trackLen);
+  r.percent = (r.z % SEG) / SEG;
+  const nw = findSeg(r.z);
+  if (old !== nw) { const i = old.cars.indexOf(r); if (i >= 0) old.cars.splice(i, 1); nw.cars.push(r); }
 }
 
 /* ---------- render ---------- */
@@ -921,6 +970,7 @@ const sfx = {
   cp() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84].forEach((m, i) => tone(mf(m), t + i * .08, .25, 'triangle', .2, master)); },
   goal() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84, 79, 84, 88].forEach((m, i) => tone(mf(m), t + i * .12, .35, 'square', .12, master)); },
   boost() { if (!actx) return; const t = actx.currentTime; noise(t, .7, .35, 0, master, 2400); tone(90, t, .4, 'sawtooth', .1, master, 600); },
+  horn() { if (!actx) return; const t = actx.currentTime; [0, .28].forEach(d => { tone(233, t + d, .22, 'square', .09, master, 1400); tone(294, t + d, .22, 'square', .07, master, 1400); }); },
   tick() { if (!actx) return; tone(1400, actx.currentTime, .06, 'square', .08, master); },
   over() { if (!actx) return; const t = actx.currentTime; [67, 63, 60, 55].forEach((m, i) => tone(mf(m), t + i * .22, .4, 'triangle', .2, master)); },
 };
