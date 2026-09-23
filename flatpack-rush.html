@@ -11,7 +11,7 @@
 body{margin:0}
 :root{
   --ink:#0b0e2a; --ink2:#141a44; --blue:#0a4f9c; --yellow:#ffd400; --red:#e0344f;
-  --cream:#f5ecd9; --mute:#9aa3c7; --ctl:0px;
+  --cream:#f5ecd9; --mute:#9aa3c7; --turbo:#4fd8ff; --ctl:0px;
   color-scheme:dark;
 }
 @media (pointer:coarse){ :root{ --ctl:84px; } }
@@ -49,6 +49,9 @@ canvas{display:block; width:100%; height:100%; image-rendering:pixelated}
 .tick{position:absolute; top:-.5cqw; width:.3cqw; height:1.9cqw; background:var(--cream); opacity:.7}
 #progTruck{position:absolute; top:-1.9cqw; font-size:1.9cqw; transform:translateX(-50%) scaleX(-1)}
 #hudSpeed{right:2.4cqw; bottom:5.6cqw; text-align:right}
+#hudSpeed.boost #speed{color:var(--turbo)}
+#boostBar{width:16cqw; height:1cqw; margin:.5cqw 0 1cqw auto; background:rgba(0,0,0,.5); box-shadow:0 0 0 .2cqw rgba(255,255,255,.25)}
+#boostFill{height:100%; width:100%; background:var(--turbo)}
 #speed{font-family:'Bungee',Impact,sans-serif; font-size:4.6cqw; font-variant-numeric:tabular-nums}
 #hudCargo{left:2.4cqw; bottom:5.6cqw; width:22cqw}
 #cargoBar{margin-top:.7cqw; height:1.3cqw; background:rgba(0,0,0,.5); box-shadow:0 0 0 .2cqw rgba(255,255,255,.25)}
@@ -101,6 +104,7 @@ kbd{font:inherit; border:.15cqw solid var(--mute); border-radius:.3cqw; padding:
   border:2px solid rgba(245,236,217,.35); border-radius:10px; touch-action:none}
 #touch button.gas{background:rgba(255,212,0,.85); color:var(--ink); flex:1.4}
 #touch button.brk{background:rgba(224,52,79,.7); flex:1.1}
+#touch button.tb{background:rgba(79,216,255,.75); color:var(--ink); flex:1.1}
 #touch button.on{filter:brightness(1.4); transform:scale(.97)}
 #touch .sp{flex:.3; background:none; border:0}
 
@@ -131,7 +135,7 @@ kbd{font:inherit; border:.15cqw solid var(--mute); border-radius:.3cqw; padding:
     <div id="cargoBar"><div id="cargoFill"></div></div>
     <div id="radioNow"></div>
   </div>
-  <div class="hud" id="hudSpeed" hidden><div class="lbl">KM/H</div><div id="speed">0</div></div>
+  <div class="hud" id="hudSpeed" hidden><div class="lbl">TURBO</div><div id="boostBar"><div id="boostFill"></div></div><div class="lbl">KM/H</div><div id="speed">0</div></div>
   <div class="hud" id="progress" hidden><div id="progFill"></div><div id="progTruck">🚚</div></div>
   <div class="hud" id="msg"></div>
   <button id="muteBtn" type="button">SOUND ON</button>
@@ -140,14 +144,14 @@ kbd{font:inherit; border:.15cqw solid var(--mute); border-radius:.3cqw; padding:
     <div class="card">
       <div>
         <h1>Flatpack<br>Rush</h1>
-        <p class="tag">You drive the big blue box truck. Five stages, one delivery window, and a sofa in 212 pieces that must reach the Svenssons before closing time. Checkpoints buy you time. Moose do not.</p>
+        <p class="tag">You drive the big blue box truck. Five stages, one delivery window, and a sofa in 212 pieces that must reach the Svenssons before closing time. Checkpoints buy you time. Moose and trolley-pushing shoppers do not.</p>
         <div class="radio" role="group" aria-label="Choose a radio station">
           <button type="button" data-st="0" aria-pressed="true">88.6 FM<small>Allen Key Groove</small></button>
           <button type="button" data-st="1" aria-pressed="false">101.2 FM<small>Köttbulle Disco</small></button>
           <button type="button" data-st="2" aria-pressed="false">— FM<small>Tyst · engine only</small></button>
         </div>
         <button class="go" id="startBtn" type="button">Start delivery</button>
-        <div class="keys"><kbd>←</kbd><kbd>→</kbd> steer · <kbd>↑</kbd> gas · <kbd>↓</kbd> brake · <kbd>R</kbd> radio · <kbd>P</kbd> pause · <kbd>M</kbd> mute</div>
+        <div class="keys"><kbd>←</kbd><kbd>→</kbd> steer · <kbd>↑</kbd> gas · <kbd>↓</kbd> brake · <kbd>Shift</kbd> turbo · <kbd>R</kbd> radio · <kbd>P</kbd> pause · <kbd>M</kbd> mute</div>
       </div>
       <div class="ticket" aria-label="Delivery order">
         <div class="hd"><span>HEMLEVERANS</span><span>#04417</span></div>
@@ -183,6 +187,7 @@ kbd{font:inherit; border:.15cqw solid var(--mute); border-radius:.3cqw; padding:
   <button data-k="left" type="button">◀</button>
   <button data-k="right" type="button">▶</button>
   <span class="sp"></span>
+  <button data-k="boost" class="tb" type="button">Turbo</button>
   <button data-k="down" class="brk" type="button">Brake</button>
   <button data-k="up" class="gas" type="button">Gas</button>
 </div>
@@ -200,8 +205,10 @@ const SEG = 200, RUMBLE = 3, ROADW = 2000, LANES = 3, FOV = 100, CAMH = 1000, DR
 const camDepth = 1 / Math.tan((FOV / 2) * Math.PI / 180);
 const playerZ = CAMH * camDepth;
 const STEP = 1 / 60, MAXS = SEG / STEP;
-const ACCEL = MAXS / 6, BRAKE = -MAXS, DECEL = -MAXS / 6, OFFDECEL = -MAXS / 2, OFFLIMIT = MAXS / 4, CENTRI = 0.32;
-const TRUCKW = 520, CARW = 540, MOOSEW = 560;
+const ACCEL = MAXS / 4.5, BRAKE = -MAXS, DECEL = -MAXS / 6, OFFDECEL = -MAXS / 2, OFFLIMIT = MAXS / 4, CENTRI = 0.32;
+const TRUCKW = 520, CARW = 540, MOOSEW = 560, SHOPPERW = 480;
+// MAXS is one segment per step; the van can now outrun it, so collisions scan every segment crossed
+const TOP = MAXS * 1.3, TURBO = MAXS * 1.75, BOOST_ACC = MAXS * 0.9, OVERDECEL = -MAXS * 0.5, BOOST_SECS = 3, BOOST_RECHARGE = 14;
 const STAGE_LEN = 2100, START_TIME = 62, BONUS = [46, 46, 44, 42];
 
 /* ---------- helpers ---------- */
@@ -375,6 +382,7 @@ function buildSprites() {
   }));
 
   S.moose = mk(260, 230, (g) => drawMoose(g, '#4a2f1d'));
+  S.shoppers = [['#e0344f', '#ffd400'], ['#2f8f5b', '#e0344f'], ['#f5ecd9', '#0a4f9c']].map(([coat, hat]) => mk(240, 240, g => drawShopper(g, coat, hat)));
 
   // the truck: rear view, 3 lean frames × brake on/off
   S.truck = {};
@@ -398,6 +406,24 @@ function buildSprites() {
     if (br) { const gr = g.createRadialGradient(31, 171, 2, 31, 171, 30); gr.addColorStop(0, 'rgba(255,60,70,.7)'); gr.addColorStop(1, 'rgba(255,60,70,0)'); g.fillStyle = gr; g.fillRect(0, 140, 70, 60); g.save(); g.translate(w - 62, 0); g.fillRect(0, 140, 70, 60); g.restore(); }
     g.restore();
   });
+}
+function drawShopper(g, coat, hat) {
+  // side view, walking right, pushing a trolley stacked with flat-packs
+  g.fillStyle = '#2a2d33'; g.fillRect(50, 150, 13, 76); g.fillRect(70, 150, 13, 76);   // legs
+  g.fillStyle = '#111'; g.fillRect(46, 222, 22, 8); g.fillRect(68, 222, 22, 8);         // shoes
+  g.fillStyle = coat; rrect(g, 42, 82, 50, 76, 10);                                      // coat
+  g.fillRect(84, 96, 36, 12);                                                            // arm to handle
+  g.fillStyle = '#e8b894'; circ(g, 68, 62, 18); circ(g, 122, 102, 6);                    // head, hand
+  g.fillStyle = hat; g.fillRect(50, 40, 36, 14); circ(g, 68, 38, 7);                     // bobble hat
+  g.fillStyle = '#1b1b1b'; g.fillRect(78, 58, 4, 4);                                     // eye
+  g.fillStyle = '#c89a5c'; g.fillRect(128, 58, 92, 44);                                  // flat-pack boxes
+  g.fillStyle = '#e8d6a8'; g.fillRect(170, 58, 10, 44); g.fillStyle = '#b3884f'; g.fillRect(136, 30, 70, 30);
+  g.fillStyle = '#0a4f9c'; rrect(g, 190, 70, 34, 34, 4); g.fillStyle = '#ffd400'; g.fillRect(198, 62, 18, 8); // blue bag
+  g.strokeStyle = '#c9ced6'; g.lineWidth = 5; g.beginPath();
+  g.moveTo(118, 100); g.lineTo(126, 100); g.lineTo(136, 170); g.lineTo(226, 170); g.lineTo(230, 100); g.lineTo(126, 100);
+  g.moveTo(136, 170); g.lineTo(140, 214); g.lineTo(220, 214); g.lineTo(226, 170); g.stroke();
+  g.lineWidth = 2; g.beginPath(); for (let x = 146; x < 226; x += 14) { g.moveTo(x, 102); g.lineTo(x + 2, 168); } g.stroke();
+  g.fillStyle = '#1b1b1b'; circ(g, 146, 226, 10); circ(g, 214, 226, 10);                // wheels
 }
 function drawMoose(g, col) {
   g.fillStyle = col;
@@ -530,24 +556,32 @@ function resetCars() {
       const car = { z, offset: (Math.floor(r() * 3) - 1) * 0.62 + (r() - .5) * .15, speed: MAXS * (0.22 + r() * 0.3), sprite: S.cars[Math.floor(r() * S.cars.length)], w: CARW };
       cars.push(car); findSeg(z).cars.push(car);
     }
-    const moose = [3, 2, 1, 8, 1][s];
+    const moose = [6, 4, 3, 14, 3][s];
     for (let i = 0; i < moose; i++) {
       const z = z0 + (i + .5) / moose * (z1 - z0);
-      const m = { z, offset: (r() < .5 ? -1 : 1) * (1.4 + r() * .5), speed: 0, moose: true, dOff: (r() < .5 ? 1 : -1) * (0.25 + r() * .2), sprite: S.moose, w: MOOSEW };
+      const m = { z, offset: (r() < .5 ? -1 : 1) * (1.4 + r() * .5), speed: 0, moose: true, walk: true, dOff: (r() < .5 ? 1 : -1) * (0.25 + r() * .2), sprite: S.moose, w: MOOSEW };
       m.dOff = -Math.sign(m.offset) * Math.abs(m.dOff);
       cars.push(m); findSeg(z).cars.push(m);
+    }
+    // shoppers wheeling their haul across the road, slower than moose
+    const shoppers = [3, 4, 3, 1, 6][s];
+    for (let i = 0; i < shoppers; i++) {
+      const z = z0 + (i + .25 + r() * .5) / shoppers * (z1 - z0);
+      const p = { z, offset: (r() < .5 ? -1 : 1) * (1.3 + r() * .5), speed: 0, shopper: true, walk: true, dOff: 0.14 + r() * .1, sprite: S.shoppers[Math.floor(r() * S.shoppers.length)], w: SHOPPERW };
+      p.dOff = -Math.sign(p.offset) * p.dOff;
+      cars.push(p); findSeg(z).cars.push(p);
     }
   }
 }
 
 /* ---------- state ---------- */
 let state = 'title', paused = false;
-let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0;
+let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0, boost = 1, boosting = false, hitCool = 0;
 let time = START_TIME, lap = 0, score = 0, cargo = 100, nextCp = 0, shake = 0, endTimer = 0, bgStage = 0, bgFade = 1, prevBg = 0, clock = 0;
-const keys = { left: false, right: false, up: false, down: false };
+const keys = { left: false, right: false, up: false, down: false, boost: false };
 
 function resetRun() {
-  position = 0; playerX = 0; speed = 0; skyOff = 0; nearOff = 0; time = START_TIME; lap = 0; score = 0; cargo = 100; nextCp = 0; shake = 0; endTimer = 0;
+  position = 0; playerX = 0; speed = 0; skyOff = 0; nearOff = 0; time = START_TIME; lap = 0; score = 0; cargo = 100; nextCp = 0; shake = 0; endTimer = 0; boost = 1; boosting = false; hitCool = 0;
   bgStage = 0; prevBg = 0; bgFade = 1; resetCars();
 }
 
@@ -560,7 +594,7 @@ function update(dt) {
   clock += dt;
   const pSeg = findSeg(position + playerZ);
   const pw = TRUCKW / ROADW;
-  const sp = speed / MAXS;
+  const sp = Math.min(speed / MAXS, 1.2); // keep steering sane above the old top speed
   const dx = dt * 2.1 * sp;
   const startPos = position;
   const driving = state === 'play';
@@ -574,28 +608,44 @@ function update(dt) {
   if (auto) { const target = -pSeg.curve * 0.08; playerX = lerp(playerX, target, dt * 1.5); steer = Math.sign(pSeg.curve) * (Math.abs(pSeg.curve) > 1.5 ? 1 : 0); }
   else playerX -= dx * sp * pSeg.curve * CENTRI;
 
-  if (driving && keys.up) speed = acc(speed, ACCEL, dt);
+  const wasBoosting = boosting;
+  boosting = driving && keys.boost && boost > 0;
+  if (boosting) { boost = Math.max(0, boost - dt / BOOST_SECS); if (!wasBoosting) sfx.boost(); }
+  else if (driving) boost = Math.min(1, boost + dt / BOOST_RECHARGE);
+
+  if (boosting) speed = acc(speed, BOOST_ACC, dt);
+  else if (driving && keys.up) speed = acc(speed, ACCEL, dt);
   else if (driving && keys.down) speed = acc(speed, BRAKE, dt);
   else if (auto) speed = lerp(speed, MAXS * 0.42, dt);
   else if (state === 'done' || state === 'timeup') speed = acc(speed, state === 'done' ? BRAKE * .5 : DECEL * 1.4, dt);
   else speed = acc(speed, DECEL, dt);
 
+  // every segment the truck passed through this step, so nothing is skipped at turbo speed
+  const nSeg = findSeg(position + playerZ), hitSegs = [pSeg];
+  if (nSeg !== pSeg) for (let i = (pSeg.index + 1) % segments.length; i !== nSeg.index; i = (i + 1) % segments.length) hitSegs.push(segments[i]);
+
   if ((playerX < -1 || playerX > 1) && !auto) {
-    if (speed > OFFLIMIT) speed = acc(speed, OFFDECEL, dt);
-    if (driving) for (const s of pSeg.sprites) {
+    if (speed > OFFLIMIT) speed = acc(speed, OFFDECEL - (boosting ? BOOST_ACC : 0), dt);
+    if (driving) scenery: for (const seg of hitSegs) for (const s of seg.sprites) {
       if (s.nocollide) continue; const sw = s.w / ROADW; const cx = s.offset > 0 ? s.offset + sw / 2 : s.offset - sw / 2;
-      if (overlap(playerX, pw, cx, sw, 0.55)) { hit(4, 'Scenery'); speed = MAXS / 6; position = inc(pSeg.p1.world.z, -playerZ, trackLen); break; }
+      if (overlap(playerX, pw, cx, sw, 0.55)) { if (hitCool <= 0) { hit(4, 'Scenery'); hitCool = 0.8; } // one crash, one dent — not one per frame
+        speed = MAXS / 6; position = inc(seg.p1.world.z, -playerZ, trackLen); break scenery; }
     }
   }
-  if (driving) for (const car of pSeg.cars) {
+  if (driving) traffic: for (const seg of hitSegs) for (const car of seg.cars) {
     const cw = car.w / ROADW;
-    if ((speed > car.speed || car.moose) && overlap(playerX, pw, car.offset, cw, 0.8)) {
-      if (car.moose) { hit(14, 'ÄLG!'); speed = speed * 0.25; car.offset += playerX < car.offset ? 1.2 : -1.2; car.dOff = Math.sign(car.offset) * Math.abs(car.dOff); }
+    if ((speed > car.speed || car.walk) && overlap(playerX, pw, car.offset, cw, 0.8)) {
+      if (car.walk) {
+        if (car.moose) { hit(14, 'ÄLG!'); speed = speed * 0.25; } else { hit(8, 'TROLLEY'); speed = speed * 0.45; }
+        car.offset += playerX < car.offset ? 1.2 : -1.2; car.dOff = Math.sign(car.offset) * Math.abs(car.dOff);
+      }
       else { hit(6); speed = car.speed * (car.speed / speed); position = inc(car.z, -playerZ, trackLen); }
-      break;
+      break traffic;
     }
   }
-  playerX = clamp(playerX, -3, 3); speed = clamp(speed, 0, MAXS);
+  const top = boosting ? TURBO : TOP;
+  if (speed > top) speed = Math.max(top, acc(speed, OVERDECEL, dt));
+  playerX = clamp(playerX, -3, 3); speed = clamp(speed, 0, TURBO);
 
   const moved = inc(position, -startPos, trackLen) / SEG;
   skyOff += pSeg.curve * moved * 0.0012; nearOff += pSeg.curve * moved * 0.0028;
@@ -608,7 +658,7 @@ function update(dt) {
     const pz = position + playerZ;
     if (nextCp < 5 && pz >= cpZ[nextCp]) {
       if (nextCp === 4) { state = 'done'; endTimer = 0; showMsg('LEVERERAT!', 'Delivered to Lingonvägen 7', 4); sfx.goal(); }
-      else { time += BONUS[nextCp]; showMsg('KONTROLL!', `Delivery window +${BONUS[nextCp]}s · ${THEMES[nextCp + 1].name}`, 2.6); sfx.cp(); }
+      else { time += BONUS[nextCp]; boost = Math.min(1, boost + .5); showMsg('KONTROLL!', `+${BONUS[nextCp]}s · turbo refill · ${THEMES[nextCp + 1].name}`, 2.6); sfx.cp(); }
       nextCp++;
     }
     if (time <= 10 && Math.floor(time) !== Math.floor(time + dt) && time > 0) sfx.tick();
@@ -618,17 +668,19 @@ function update(dt) {
   if (state === 'done') { endTimer += dt; if (endTimer > 2.4) finish(true); }
 
   if (shake > 0) shake = Math.max(0, shake - dt);
+  if (hitCool > 0) hitCool -= dt;
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').innerHTML = ''; }
   sfx.engine(speed / MAXS, state === 'play' || state === 'title');
 }
 function hit(dmg, label) {
   cargo = Math.max(0, cargo - dmg); shake = reduceMotion ? 0 : 0.35; sfx.crash(dmg > 10);
   if (label === 'ÄLG!') showMsg('ÄLG!', 'Moose 1 · Truck 0 · −14% cargo', 1.6);
+  if (label === 'TROLLEY') showMsg('OJ!', 'Trolley launched · shopper fine · −8% cargo', 1.6);
 }
 function updateCars(dt, pSeg, pw) {
   for (const car of cars) {
     const old = findSeg(car.z);
-    if (car.moose) {
+    if (car.walk) {
       // amble across the road, turn around on the verges
       car.offset += car.dOff * dt;
       if (car.offset > 2 || car.offset < -2) car.dOff = -car.dOff;
@@ -721,7 +773,7 @@ function render() {
       const sx = lerp(seg.p1.screen.x, seg.p2.screen.x, car.percent) + sc * car.offset * ROADW * W / 2;
       const sy = lerp(seg.p1.screen.y, seg.p2.screen.y, car.percent);
       let img = car.sprite;
-      if (car.moose && car.dOff < 0) { img = S.mooseFlip || (S.mooseFlip = mk(S.moose.width, S.moose.height, g => { g.scale(-1, 1); g.drawImage(S.moose, -S.moose.width, 0); })); }
+      if (car.walk && car.dOff < 0) { const src = car.sprite; img = src.flip || (src.flip = mk(src.width, src.height, g => { g.scale(-1, 1); g.drawImage(src, -src.width, 0); })); }
       drawSprite(img, sc, sx, sy, car.w, -0.5, -1, seg.clip);
     }
     for (const s of seg.sprites) {
@@ -734,9 +786,24 @@ function render() {
       const camY = lerp(pSeg.p1.camera.y, pSeg.p2.camera.y, ppct);
       const bounce = (reduceMotion ? 0 : 1.6 * Math.random() * (speed / MAXS)) * (Math.random() < .5 ? -1 : 1) + ((playerX < -1 || playerX > 1) && speed > 100 ? (Math.random() - .5) * 4 : 0);
       const braking = (state === 'play' && keys.down) || state === 'done';
-      drawSprite(S.truck[steer + ':' + (braking ? 1 : 0)], sc, W / 2, H / 2 - sc * camY * H / 2 + bounce - 14, TRUCKW, -0.5, -1);
+      const ty = H / 2 - sc * camY * H / 2 + bounce - 14;
+      drawSprite(S.truck[steer + ':' + (braking ? 1 : 0)], sc, W / 2, ty, TRUCKW, -0.5, -1);
+      if (boosting) for (const fx of [W / 2 - 46, W / 2 + 46]) {
+        const f = 0.7 + Math.random() * 0.6;
+        ctx.fillStyle = 'rgba(255,140,40,.85)'; circ(ctx, fx, ty + 2, 9 * f);
+        ctx.fillStyle = 'rgba(79,216,255,.9)'; circ(ctx, fx, ty + 1, 5 * f);
+        ctx.fillStyle = '#fff'; circ(ctx, fx, ty, 2.5 * f);
+      }
       if ((playerX < -1 || playerX > 1) && speed > OFFLIMIT * 0.6) { ctx.fillStyle = 'rgba(200,180,140,.35)'; for (let k = 0; k < 4; k++) circ(ctx, W / 2 + (Math.random() - .5) * 180, H - 10 - Math.random() * 20, 6 + Math.random() * 10); }
     }
+  }
+  if (boosting && !reduceMotion) {
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 0; k < 16; k++) {
+      const a = Math.random() * Math.PI * 2, r0 = 150 + Math.random() * 90, r1 = r0 + 50 + Math.random() * 90;
+      ctx.moveTo(W / 2 + Math.cos(a) * r0, H * .45 + Math.sin(a) * r0 * .6); ctx.lineTo(W / 2 + Math.cos(a) * r1, H * .45 + Math.sin(a) * r1 * .6);
+    }
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -752,7 +819,8 @@ function updateHud() {
   hudSet('time', String(Math.ceil(time)));
   $('time').classList.toggle('low', time <= 10 && state === 'play');
   hudSet('score', Math.floor(score).toLocaleString('sv-SE'));
-  hudSet('speed', String(Math.round(speed / MAXS * 148)));
+  hudSet('speed', String(Math.round(speed / MAXS * 118)));
+  $('boostFill').style.width = (boost * 100) + '%'; $('hudSpeed').classList.toggle('boost', boosting);
   hudSet('lap', fmtLap(lap));
   const st = Math.min(4, findSeg(position + playerZ).stage);
   hudSet('stageNo', `${st + 1}/5`); hudSet('stageName', THEMES[st].name);
@@ -842,6 +910,7 @@ const sfx = {
   crash(big) { if (!actx) return; const t = actx.currentTime; noise(t, big ? .5 : .25, big ? .6 : .4, 0, master, big ? 900 : 1600); tone(big ? 70 : 110, t, .25, 'square', .12, master); },
   cp() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84].forEach((m, i) => tone(mf(m), t + i * .08, .25, 'triangle', .2, master)); },
   goal() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84, 79, 84, 88].forEach((m, i) => tone(mf(m), t + i * .12, .35, 'square', .12, master)); },
+  boost() { if (!actx) return; const t = actx.currentTime; noise(t, .7, .35, 0, master, 2400); tone(90, t, .4, 'sawtooth', .1, master, 600); },
   tick() { if (!actx) return; tone(1400, actx.currentTime, .06, 'square', .08, master); },
   over() { if (!actx) return; const t = actx.currentTime; [67, 63, 60, 55].forEach((m, i) => tone(mf(m), t + i * .22, .4, 'triangle', .2, master)); },
 };
@@ -856,7 +925,7 @@ function setRadio(i) {
 function start() {
   initAudio(); resetRun(); state = 'play'; paused = false;
   $('title').hidden = true; $('over').hidden = true; $('pause').hidden = true; setHud(true);
-  showMsg('KÖR!', 'Order #04417 · Svensson family · Lingonvägen 7', 2.2);
+  showMsg('KÖR!', 'Order #04417 · Lingonvägen 7 · hold SHIFT for turbo', 2.2);
 }
 function togglePause() {
   if (state !== 'play' && !paused) return;
@@ -868,7 +937,7 @@ $('pause').addEventListener('click', togglePause);
 $('muteBtn').addEventListener('click', () => { initAudio(); setMute(!muted); });
 document.querySelectorAll('.radio button').forEach(b => b.addEventListener('click', () => { initAudio(); setRadio(+b.dataset.st); }));
 
-const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down' };
+const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ShiftLeft: 'boost', ShiftRight: 'boost', Space: 'boost' };
 addEventListener('keydown', e => {
   const k = KEYMAP[e.code];
   if (k) { keys[k] = true; if (state === 'play') e.preventDefault(); }
