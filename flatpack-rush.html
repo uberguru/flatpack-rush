@@ -576,7 +576,7 @@ function resetCars() {
 
 /* ---------- state ---------- */
 let state = 'title', paused = false;
-let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0, boost = 1, boosting = false, hitCool = 0;
+let position = 0, playerX = 0, speed = 0, steer = 0, skyOff = 0, nearOff = 0, boost = 1, boosting = false, hitCool = 0, turboSaid = -9;
 let time = START_TIME, lap = 0, score = 0, cargo = 100, nextCp = 0, shake = 0, endTimer = 0, bgStage = 0, bgFade = 1, prevBg = 0, clock = 0;
 const keys = { left: false, right: false, up: false, down: false, boost: false };
 
@@ -610,7 +610,7 @@ function update(dt) {
 
   const wasBoosting = boosting;
   boosting = driving && keys.boost && boost > 0;
-  if (boosting) { boost = Math.max(0, boost - dt / BOOST_SECS); if (!wasBoosting) sfx.boost(); }
+  if (boosting) { boost = Math.max(0, boost - dt / BOOST_SECS); if (!wasBoosting) turboOn(); }
   else if (driving) boost = Math.min(1, boost + dt / BOOST_RECHARGE);
 
   if (boosting) speed = acc(speed, BOOST_ACC, dt);
@@ -671,6 +671,16 @@ function update(dt) {
   if (hitCool > 0) hitCool -= dt;
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').innerHTML = ''; }
   sfx.engine(speed / MAXS, state === 'play' || state === 'title');
+}
+function turboOn() {
+  sfx.boost();
+  if (clock - turboSaid < 2.5) return; // no chatter when tapping the key
+  turboSaid = clock;
+  if (msgTimer <= 0) showMsg('TURBO', 'activated', 1.2);
+  if (!muted && 'speechSynthesis' in window) {
+    const u = new SpeechSynthesisUtterance('Turbo activated'); u.rate = 1.15; u.pitch = 0.8; u.volume = 0.9;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
 }
 function hit(dmg, label) {
   cargo = Math.max(0, cargo - dmg); shake = reduceMotion ? 0 : 0.35; sfx.crash(dmg > 10);
